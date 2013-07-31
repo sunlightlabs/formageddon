@@ -20,8 +20,72 @@ module Formageddon
       command =~ /submit_form/ && formageddon_form.has_captcha?
     end
 
+    def set_browser(browser)
+      @browser = browser
+    end
+
+    def get_element(selector)
+      el = @browser.page.search(selector).first
+    rescue
+      raise "Field (#{ff.css_selector}) not found!"
+    end
+
+    # The following methods alter the browser page state via nokogiri, to then be loaded
+    # in as a Mechanize::Form and submitted later
+    def fill_in(selector, options={})
+      element = get_element(selector)
+      if element.name == 'textarea'
+        element.inner_html = options[:with]
+      else
+        get_element(selector)['value'] = options[:with]
+      end
+    end
+
+    def select(selector, options = {})
+      selection = nil
+      select = get_element selector
+      select.children.each do |option|
+        option.remove_attribute('selected') rescue nil
+        if option['value'] == options[:value]
+          selection = option
+        end
+      end
+      if selection.nil?
+        value_options = select.children.reject {|o| o['value'].blank? }
+        if options[:default] == :random
+          return select(selector, :value => value_options[rand(value_options.length)]['value'])
+        elsif options[:default] == :first_with_value
+          return select(selector, :value => value_options.first['value'])
+        elsif options[:default] == :first
+          selection = select.children.first
+        end
+      end
+      selection['selected'] = 'selected' if selection.present?
+      selection
+    end
+
+    def select_options_for(selector)
+      select = get_element selector
+      select.children.map{|o| o['value']}
+    end
+
+    def check(selector, options = {})
+      element = get_element(selector)
+      form = @browser.get_form_node_by_css(selector)
+      @browser.page.search("[name='#{element['name']}']").each do |el|
+        el.remove_attribute('checked') rescue nil
+      end
+      get_element(selector)['checked'] = 'checked'
+    end
+
+    def uncheck(selector, options = {})
+      get_element(selector).remove_attribute('checked') rescue nil
+    end
+
+    # This creates the browser and iterates over the various form fields
     def execute(browser, options = {})
-      raise "Browser is nil!" if browser.nil?
+      set_browser(browser)
+      raise "Browser is invalid!" unless @browser.kind_of? Mechanize
 
       Rails.logger.debug "Executing Contact Step ##{self.step_number} for #{self.formageddon_recipient}..."
 
@@ -39,7 +103,7 @@ module Formageddon
           command, url = self.command.split(/::/)
 
           begin
-            browser.get(url) do |page|
+            @browser.get(url) do |page|
               # remove some bad html that appears on some pages
               # TODO: Why is this here? what problems could clearing divs be causing?
               page.body = page.body.gsub(/<div class="clear"\/> <\/div>/, '')
@@ -60,7 +124,7 @@ module Formageddon
           raise "Must submit :letter to execute!" if options[:letter].nil?
           letter = options[:letter]
 
-          delivery_attempt.save_before_browser_state(browser) if save_states
+          delivery_attempt.save_before_browser_state(@browser) if save_states
 
           if formageddon_form.has_captcha? and letter.captcha_solution.nil?
             letter.status = 'CAPTCHA_REQUIRED'
@@ -72,21 +136,19 @@ module Formageddon
             end
 
             begin
-              save_captcha_image(browser, letter)
+              save_captcha_image(@browser, letter)
             rescue Timeout::Error
               save_after_error("Saving captcha: #{$!}", options[:letter], delivery_attempt, save_states)
 
-              delivery_attempt.save_after_browser_state(browser) if save_states
+              delivery_attempt.save_after_browser_state(@browser) if save_states
             end
             return false
           end
 
           formageddon_form.formageddon_form_fields.each do |ff|
-            field = browser.page.search(ff.css_selector).first
-            raise "#{ff.value.titleize} field (#{ff.css_selector}) not found!" if ff.nil?
-
+            # TODO: WHAT IS HAPPENING HERE!?
             puts letter if letter.is_a? Hash
-            field.value = letter[ff.value] and next if letter.is_a? Hash
+            fill_in(ff.css_selector, :with => letter[ff.value]) and next if letter.is_a? Hash
 
             # Any proceeding iteration should be with a FormageddonLetter
             raise "#{letter} is not a valid FormageddonLetter!" unless letter.is_a? FormageddonLetter
@@ -97,92 +159,70 @@ module Formageddon
             if (ff.value == 'email' &&
                 !Formageddon::configuration.reply_domain.nil? &&
                 !formageddon_form.use_real_email_address?)
-              field.value = "formageddon+#{letter.formageddon_thread.id}@#{Formageddon::configuration.reply_domain}"
+              fill_in(ff.css_selector, :with => "formageddon+#{letter.formageddon_thread.id}@#{Formageddon::configuration.reply_domain}")
 
             elsif ff.value == 'want_response'
-              if field.is_a? Mechanize::Form::SelectList
-                option_field = field.options_with(:value => /(y(es)?|true)/i).first
-                if option_field.present?
-                  option_field.select
-                else
-                  # 3 options means the first one is probably null
-                  if field.options.length == 3
-                    field.options[1].select
-                  else
-                    # Select the first one, which is less than great and needs more research.
-                    # Previously this selected at random, which seems way worse.
-                    field.options[0].select
-                  end
-                end
-
-              elsif field.is_a? Mechanize::Form::CheckBox
-                if ff.value == 'leave_blank' && field.checked?
-                  field.uncheck
-                elsif ff.value != 'leave_blank' && field.unchecked?
-                  field.check
-                end
-              elsif field.is_a? Mechanize::Form::RadioButton
-                if ff.value != 'leave_blank' && field.unchecked?
-                  field.check
-                end
+              field = get_element(ff.css_selector)
+              if field.name == 'select'
+                select_options = select_options_for(ff.css_selector)
+                opt = select_options.select{|o| o =~ /(y(es)?|true)/i }.first
+                options = { :value => opt }
+                options[:default] = :first_with_value if ff.required?
+                select(ff.css_selector, options)
+              elsif field.name == "input" && field['type'] =~ /(checkbox|radio)/
+                check(ff.css_selector)
               else
-                field.value = 'Yes'
+                fill_in(ff.css_selector, :with => 'Yes')
               end
+
             elsif ff.value == 'title'
+              field = get_element(ff.css_selector)
               title = letter.value_for(ff.value)
-              if field.is_a? Mechanize::Form::SelectList
-                # the chop value has no period
-                option_field = field.options_with(:value => /#{title}/i).first ||
-                               field.options_with(:value => /#{title.chop}/i).first
-
-                if option_field.present?
-                  option_field.select
-                else
-                # select a random one.  not ideal.
-                  field.options[rand(field.options.size-1)+1].select
-                end
+              if field.name == 'select'
+                select(ff.css_selector, :value => title, :default => :random)
               else
-                field.value = title
+                fill_in(ff.css_selector, :with => title)
               end
+
             elsif ff.value == 'issue_area'
               # TODO: Ack! There is no handling of issue area mapping!
               value = letter.value_for(ff.value)
-              if field.is_a? Mechanize::Form::SelectList
-                option_field = field.options_with(:value => value).first
-                option_field = field.options_with(:value => /(other|general)/i).first if option_field.nil?
-                if option_field.present?
-                  option_field.select
-                else
-                  # Boooo random
-                  field.options[rand(field.options.size-1)+1].select
+              field = get_element(ff.css_selector)
+              if field.name == 'select'
+                options = select_options_for(ff.css_selector)
+                if value.blank?
+                  generic_options = options.select{|o| o =~ /(general|other)/i }
+                  value = generic_options.first
                 end
+                select(ff.css_selector, :value => value, :default => :random)
               else
-                field.value = value
+                fill_in(ff.css_selector, value)
               end
+
             elsif ff.value == 'state_house'
+              # TODO: Only one instance of this here
               state = State.find_by_abbreviation(letter.value_for(:state))
               field.value = "#{state.abbreviaion}#{state.name}"
+
             else
               value = letter.value_for(ff.value)
-              if field.is_a? Mechanize::Form::SelectList
-                option_field = field.options_with(:value => value).first
-                option_field.select if option_field.present?
-              elsif field.is_a? Mechanize::Form::CheckBox
-                if ff.value == 'leave_blank' && field.checked?
-                  field.uncheck
-                elsif ff.value != 'leave_blank' && field.unchecked?
-                  field.check
+              field = get_element(ff.css_selector)
+              if field.name == 'select'
+                opts = {:value => value}
+                opts[:default] = :first_with_value if ff.required?
+                select(ff.css_selector, opts)
+              elsif field.name == 'input' && field['type'] == 'checkbox'
+                if ff.value == 'leave_blank' && field['checked'] == 'checked'
+                  uncheck(ff.css_selector)
+                elsif ff.value != 'leave_blank' && field['checked'] != 'checked'
+                  check(ff.css_selector)
                 end
-              elsif field.is_a? Mechanize::Form::RadioButton
+              elsif field.name == 'input' && field['type'] == 'radio'
                 if ff.value != 'leave_blank' && field.unchecked?
                   field.check
                 end
               else
-                begin
-                  field.value = value unless ff.not_changeable?
-                rescue NoMethodError
-                  raise "#{ff.value} can't be set to #{value} on field with name: #{field.attr('name')}"
-                end
+                fill_in(ff.css_selector, :with => value) unless ff.not_changeable?
               end
             end
           end
@@ -190,15 +230,17 @@ module Formageddon
           # check to see if there are any default params to force
           unless Formageddon::configuration.default_params.empty?
             Formageddon::configuration.default_params.keys.each do |k|
-              fields = browser.page.search("[name='#{k}']")
+              fields = @browser.page.search("[name='#{k}']")
               fields.each do |field|
-                field.value = Formageddon::configuration.default_params[k]
+                field['value'] = Formageddon::configuration.default_params[k]
               end
             end
           end
 
+          # Submit the form.
           begin
-            browser.page.search(formageddon_form.submit_css_selector).first.click
+            form = browser.get_form_by_css(formageddon_form.submit_css_selector)
+            form.submit
           rescue Timeout::Error
             save_after_error($!, options[:letter], delivery_attempt, save_states)
 

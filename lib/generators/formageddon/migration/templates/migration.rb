@@ -26,6 +26,7 @@ class CreateFormageddonTables < ActiveRecord::Migration
       t.string :css_selector
       t.string :name
       t.string :value
+      t.boolean :required
 
       t.timestamps
     end
