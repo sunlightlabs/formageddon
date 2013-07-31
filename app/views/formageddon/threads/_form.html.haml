@@ -6,12 +6,12 @@
 
 - multi_recipients.each do |r|
   = hidden_field_tag "formageddon[formageddon_multi_recipients[#{r.id}]]", r.class.to_s
-  
+
 %p.sender_zip5
   = f.label :sender_zip5, label_for(:sender_zip5)
   = f.text_field :sender_zip5, :maxlength => 5
 
-/  
+/
   %p.sender_zip4
     = f.label :sender_zip4, label_for(:sender_zip4)
 = f.hidden_field :sender_zip4
@@ -19,7 +19,7 @@
 %p.sender_title
   = f.label :sender_title, label_for(:sender_title)
   = f.select :sender_title, options_for_select(Formageddon::FormageddonFormField.titles.map { |s| [s.to_s, s.to_s] })
-    
+
 %p.sender_first_name
   = f.label :sender_first_name, label_for(:sender_first_name)
   = f.text_field :sender_first_name
@@ -51,7 +51,7 @@
 %p.sender_phone
   = f.label :sender_phone, label_for(:sender_phone)
   = f.text_field :sender_phone
-    
+
 %p.privacy_options
   = f.label :privacy, 'Privacy Options'
   %span After sending, this letter will be viewable to:
@@ -63,18 +63,18 @@
       %p.subject
         = fl.label :subject, label_for(:subject)
         = fl.text_field :subject
-      
+
       %p.message
         = fl.label :message, label_for(:message)
         = fl.text_area :message
-        
-      .count 
+
+      .count
         Characters Remaining:&nbsp;&nbsp;
         %span#counter
 
 - if thread.formageddon_recipient_id && thread.formageddon_recipient_type
-  = f.hidden_field 'formageddon[formageddon_recipient_id]'
-  = f.hidden_field 'formageddon[formageddon_recipient_type]'
+  = hidden_field_tag 'formageddon[formageddon_recipient_id]', thread.formageddon_recipient_id
+  = hidden_field_tag 'formageddon[formageddon_recipient_type]', thread.formageddon_recipient_type
 
 = hidden_field_tag 'formageddon[after_send_url]', after_send_url
 = hidden_field_tag 'formageddon[no_sender_redirect]', no_sender_redirect

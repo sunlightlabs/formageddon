@@ -1,13 +1,15 @@
 module Formageddon
   class FormageddonFormField < ActiveRecord::Base
     belongs_to :formageddon_form
-    
+
+    after_save :ensure_index
+
     def not_changeable?
       self.value == 'submit_button' or self.value == 'leave_blank'
     end
-    
+
     @@titles = ["Mr.", "Miss", "Mrs.", "Ms.", "Dr."]
-    @@states = [ 
+    @@states = [
         "AL",
         "AK",
         "AS",
@@ -64,11 +66,19 @@ module Formageddon
         "WI",
         "WY"
     ]
+
     def self.states
       @@states
     end
+
     def self.titles
       @@titles
+    end
+
+    def ensure_index
+      unless field_number.present?
+        self.update_attribute(:field_number, (formageddon_form.formageddon_form_fields.index(self) + 1)) rescue nil
+      end
     end
   end
 end
