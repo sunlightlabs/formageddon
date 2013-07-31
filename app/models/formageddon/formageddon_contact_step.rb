@@ -120,6 +120,7 @@ module Formageddon
           end
 
           return true
+
         when /^submit_form/
           raise "Must submit :letter to execute!" if options[:letter].nil?
           letter = options[:letter]
@@ -146,8 +147,7 @@ module Formageddon
           end
 
           formageddon_form.formageddon_form_fields.each do |ff|
-            # TODO: WHAT IS HAPPENING HERE!?
-            puts letter if letter.is_a? Hash
+            # TODO: This handles the step (re)building process. Probably should just be deprecated.
             fill_in(ff.css_selector, :with => letter[ff.value]) and next if letter.is_a? Hash
 
             # Any proceeding iteration should be with a FormageddonLetter
