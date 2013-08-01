@@ -239,23 +239,23 @@ module Formageddon
 
           # Submit the form.
           begin
-            form = browser.get_form_by_css(formageddon_form.submit_css_selector)
+            form = @browser.get_form_by_css(formageddon_form.submit_css_selector)
             form.submit
           rescue Timeout::Error
             save_after_error($!, options[:letter], delivery_attempt, save_states)
 
-            delivery_attempt.save_after_browser_state(browser) if save_states
+            delivery_attempt.save_after_browser_state(@browser) if save_states
 
             return false
           rescue
             save_after_error($!, options[:letter], delivery_attempt, save_states)
 
-            delivery_attempt.save_after_browser_state(browser) if save_states
+            delivery_attempt.save_after_browser_state(@browser) if save_states
 
             return false
           end
 
-          if ((!formageddon_form.success_string.blank? and (browser.page.parser.to_s =~ /#{formageddon_form.success_string}/)) or generic_confirmation?(browser.page.parser.to_s))
+          if ((!formageddon_form.success_string.blank? and (@browser.page.parser.to_s =~ /#{formageddon_form.success_string}/)) or generic_confirmation?(@browser.page.parser.to_s))
             if letter.kind_of? Formageddon::FormageddonLetter
               letter.status = 'SENT'
               letter.save
@@ -266,13 +266,13 @@ module Formageddon
               delivery_attempt.save
 
               # save on success for now, just in case we start getting false positives here
-              delivery_attempt.save_after_browser_state(browser)
+              delivery_attempt.save_after_browser_state(@browser)
             end
 
             return true
 
           elsif formageddon_form.success_string.blank?
-            formageddon_form.success_string.blank? and !generic_confirmation?(browser.page.parser.to_s)
+            formageddon_form.success_string.blank? and !generic_confirmation?(@browser.page.parser.to_s)
 
             if letter.kind_of? Formageddon::FormageddonLetter
               letter.status = 'WARNING: Confirmation message is blank. Unable to confirm delivery.'
@@ -280,7 +280,7 @@ module Formageddon
             end
 
             if save_states
-              delivery_attempt.save_after_browser_state(browser)
+              delivery_attempt.save_after_browser_state(@browser)
 
               delivery_attempt.result = 'WARNING: Confirmation message is blank. Unable to confirm delivery.'
               delivery_attempt.save
@@ -289,12 +289,12 @@ module Formageddon
             return true
           else
             # save the browser state in the delivery attempt
-            delivery_attempt.save_after_browser_state(browser) if save_states
+            delivery_attempt.save_after_browser_state(@browser) if save_states
 
             if letter.status == 'TRYING_CAPTCHA'
               # assume that the captcha was wrong?
               letter.status = 'CAPTCHA_REQUIRED'
-              save_captcha_image(browser, letter)
+              save_captcha_image(@browser, letter)
 
               if save_states
                 delivery_attempt.result = 'CAPTCHA_WRONG'
