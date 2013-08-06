@@ -69,6 +69,18 @@ module Formageddon
       select.children.map{|o| o['value']}
     end
 
+    ###
+    # Override this method to implement a select-box solver
+    # Gets these options:
+    #
+    # :letter => An instance of the letter being sent
+    # :option_list => The possible choices, one of which the implementation of delegate_select_box_value should return
+    # :type => The normalized name of the form field that's being filled out
+    # :default => The result to return if no appropriate match is found
+    def delegate_select_box_value(options = {})
+      raise NotImplementedError
+    end
+
     def check(selector, options = {})
       element = get_element(selector)
       form = @browser.get_form_node_by_css(selector)
@@ -149,9 +161,11 @@ module Formageddon
           formageddon_form.formageddon_form_fields.each do |ff|
             # TODO: This handles the step (re)building process. Probably should just be deprecated.
             fill_in(ff.css_selector, :with => letter[ff.value]) and next if letter.is_a? Hash
-
-            # Any proceeding iteration should be with a FormageddonLetter
             raise "#{letter} is not a valid FormageddonLetter!" unless letter.is_a? FormageddonLetter
+
+            options = nil
+            value = nil
+            field = nil
 
             # Email fields need special handling due to the possiblity that a plus sign is disallowed.
             # Specifically, we want to receive emails to the site, not the user's email address, but
@@ -164,9 +178,15 @@ module Formageddon
             elsif ff.value == 'want_response'
               field = get_element(ff.css_selector)
               if field.name == 'select'
-                select_options = select_options_for(ff.css_selector)
-                opt = select_options.select{|o| o =~ /(y(es)?|true)/i }.first
-                options = { :value => opt }
+                # get the option list and start with anything named y, yes or true
+                options = select_options_for(ff.css_selector)
+                value = options.select{|o| o =~ /(y(es)?|true)/i }.first['value']
+                # if a delegator is set to handle this, use that value instead
+                begin
+                  value = delegate_select_box_value(:letter => letter, :option_list => options, :type => :want_response, :default => value)
+                rescue NotImplementedError; end
+                #select whatever option we ended up with
+                options = { :value => value }
                 options[:default] = :first_with_value if ff.required?
                 select(ff.css_selector, options)
               elsif field.name == "input" && field['type'] =~ /(checkbox|radio)/
@@ -177,19 +197,25 @@ module Formageddon
 
             elsif ff.value == 'title'
               field = get_element(ff.css_selector)
-              title = letter.value_for(ff.value)
+              value = letter.value_for(ff.value)
               if field.name == 'select'
-                select(ff.css_selector, :value => title, :default => :random)
+                options = select_options_for(ff.css_selector)
+                begin
+                  value = delegate_select_box_value(:letter => letter, :option_list => options, :type => :title, :default => value)
+                rescue NotImplementedError; end
+                select(ff.css_selector, :value => value, :default => :random)
               else
-                fill_in(ff.css_selector, :with => title)
+                fill_in(ff.css_selector, :with => value)
               end
 
             elsif ff.value == 'issue_area'
-              # TODO: Ack! There is no handling of issue area mapping!
               value = letter.value_for(ff.value)
               field = get_element(ff.css_selector)
               if field.name == 'select'
                 options = select_options_for(ff.css_selector)
+                begin
+                  value = delegate_select_box_value(:letter => letter, :option_list => options, :type => :issue_area, :default => value)
+                rescue NotImplementedError; end
                 if value.blank?
                   generic_options = options.select{|o| o =~ /(general|other)/i }
                   value = generic_options.first
@@ -200,7 +226,7 @@ module Formageddon
               end
 
             elsif ff.value == 'state_house'
-              # TODO: Only one instance of this here
+              # TODO: Only one instance of this here, seems to have to do with old writerep house forms
               state = State.find_by_abbreviation(letter.value_for(:state))
               field.value = "#{state.abbreviaion}#{state.name}"
 
@@ -208,6 +234,10 @@ module Formageddon
               value = letter.value_for(ff.value)
               field = get_element(ff.css_selector)
               if field.name == 'select'
+                options = select_options_for(ff.css_selector)
+                begin
+                  value = delegate_select_box_value(:letter => letter, :option_list => options, :type => ff.value.to_sym, :default => value)
+                rescue NotImplementedError; end
                 opts = {:value => value}
                 opts[:default] = :first_with_value if ff.required?
                 select(ff.css_selector, opts)
