@@ -1,4 +1,6 @@
 module Formageddon
+  class FieldNotFound < Exception; end
+
   class FormageddonContactStep < ActiveRecord::Base
     belongs_to :formageddon_recipient, :polymorphic => true
     has_one :formageddon_form, :dependent => :destroy
@@ -24,10 +26,17 @@ module Formageddon
       @browser = browser
     end
 
-    def get_element(selector)
-      el = @browser.page.search(selector).first
-    rescue
-      raise "Field (#{ff.css_selector}) not found!"
+    def get_elements(selector, options={})
+      unless options[:scope]
+        options[:scope] = @browser.page
+      end
+      options[:scope].search(selector) rescue []
+    end
+
+    def get_element(selector, options={})
+      el = get_elements(selector, options).first
+      raise FieldNotFound "Field (#{ff.css_selector}) not found!" if el.nil?
+      el
     end
 
     # The following methods alter the browser page state via nokogiri, to then be loaded
@@ -64,34 +73,61 @@ module Formageddon
       selection
     end
 
-    def select_options_for(selector)
-      select = get_element selector
-      select.children.map{|o| o['value']}
-    end
-
-    ###
-    # Override this method to implement a select-box solver
-    # Gets these options:
-    #
-    # :letter => An instance of the letter being sent
-    # :option_list => The possible choices, one of which the implementation of delegate_select_box_value should return
-    # :type => The normalized name of the form field that's being filled out
-    # :default => The result to return if no appropriate match is found
-    def delegate_select_box_value(options = {})
-      raise NotImplementedError
-    end
-
     def check(selector, options = {})
       element = get_element(selector)
       form = @browser.get_form_node_by_css(selector)
-      @browser.page.search("[name='#{element['name']}']").each do |el|
+      form.search("[name='#{element['name']}']").each do |el|
         el.remove_attribute('checked') rescue nil
       end
-      get_element(selector)['checked'] = 'checked'
+      begin
+        get_element(selector)['checked'] = 'checked'
+      rescue FieldNotFound
+        if options[:is_retry]
+          raise FieldNotFound "Failed to find an appropriate element for #{selector}, giving up."
+        end
+        # This clause takes the value out of the passed-in selector (if there's no value we shouldn't be here)
+        # And checks either the first, first_with_value, or a random choice from the children
+        selector = selector.gsub(/\[value=[^\]]+\]/, '')
+        choices = get_elements(selector)
+        if options[:default] == :random
+          check("#{selector}[value='#{choices[rand(choices.length)]['value']}']", :is_retry => true)
+        else
+          check("#{selector}[value='#{choices.first['value']}'", :is_retry => true)
+        end
+      end
     end
 
     def uncheck(selector, options = {})
       get_element(selector).remove_attribute('checked') rescue nil
+    end
+
+    # TODO: returning value only won't delegate well when values are meaningless
+    def select_options_for(selector)
+      select = get_element selector
+      select.children.filter{|o| o.name.downcase == 'option' }.map{|o| o['value']}
+    end
+
+    ###
+    # Override this method to implement a select-box or radio button solver
+    # Gets these options:
+    #
+    # :letter => An instance of the letter being sent
+    # :option_list => The possible choices, one of which the implementation of delegate_choice_value should return
+    # :type => The normalized name of the form field that's being filled out
+    # :default => The result to return if no appropriate match is found
+    def delegate_choice_value(options = {})
+      raise NotImplementedError
+    end
+
+    # TODO: returning value only won't delegate well when values are meaningless
+    def radio_options_for(selector)
+      radios = get_elements selector
+      # If this returns a single element, we might have gotten a specific item's selector. Instead we should grab all inputs with this name.
+      if radios.length == 1
+        selector = "input[type='radio'][name='#{radios.first.attr('name')}']"
+        radios = get_elements(selector, :scope => @browser.get_form_node_by_css(selector))
+      end
+      elements.map{|o| o['value']}
     end
 
     # This creates the browser and iterates over the various form fields
@@ -183,7 +219,7 @@ module Formageddon
                 value = options.select{|o| o =~ /(y(es)?|true)/i }.first['value']
                 # if a delegator is set to handle this, use that value instead
                 begin
-                  value = delegate_select_box_value(:letter => letter, :option_list => options, :type => :want_response, :default => value)
+                  value = delegate_choice_value(:letter => letter, :option_list => options, :type => :want_response, :default => value)
                 rescue NotImplementedError; end
                 #select whatever option we ended up with
                 options = { :value => value }
@@ -201,7 +237,7 @@ module Formageddon
               if field.name == 'select'
                 options = select_options_for(ff.css_selector)
                 begin
-                  value = delegate_select_box_value(:letter => letter, :option_list => options, :type => :title, :default => value)
+                  value = delegate_choice_value(:letter => letter, :option_list => options, :type => :title, :default => value)
                 rescue NotImplementedError; end
                 select(ff.css_selector, :value => value, :default => :random)
               else
@@ -211,16 +247,24 @@ module Formageddon
             elsif ff.value == 'issue_area'
               value = letter.value_for(ff.value)
               field = get_element(ff.css_selector)
-              if field.name == 'select'
-                options = select_options_for(ff.css_selector)
+              if field.name == 'select' || (field.name == 'input' && field.attr('type') == 'radio')
+                if field.name == 'select'
+                  options = select_options_for(ff.css_selector)
+                else
+                  options = radio_options_for(ff.css_selector)
+                end
                 begin
-                  value = delegate_select_box_value(:letter => letter, :option_list => options, :type => :issue_area, :default => value)
+                  value = delegate_choice_value(:letter => letter, :option_list => options, :type => :issue_area, :default => value)
                 rescue NotImplementedError; end
                 if value.blank?
                   generic_options = options.select{|o| o =~ /(general|other)/i }
                   value = generic_options.first
                 end
-                select(ff.css_selector, :value => value, :default => :random)
+                if field.name == 'select'
+                  select(ff.css_selector, :value => value, :default => :random)
+                else
+                  check("input[name=#{field.attr('name')}][value='#{value}']", :default => :random)
+                end
               else
                 fill_in(ff.css_selector, value)
               end
@@ -236,7 +280,7 @@ module Formageddon
               if field.name == 'select'
                 options = select_options_for(ff.css_selector)
                 begin
-                  value = delegate_select_box_value(:letter => letter, :option_list => options, :type => ff.value.to_sym, :default => value)
+                  value = delegate_choice_value(:letter => letter, :option_list => options, :type => ff.value.to_sym, :default => value)
                 rescue NotImplementedError; end
                 opts = {:value => value}
                 opts[:default] = :first_with_value if ff.required?
