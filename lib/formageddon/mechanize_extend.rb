@@ -11,14 +11,14 @@ class Mechanize
 
   def get_form_node_by_css(selector)
     # get form by traversing up from a given selector
-    form = page.search(selector).first rescue nil
-    return form if form.name == 'form'
     begin
+      form = page.search(selector).first
+      return form if form.name == 'form'
       while form.name != 'form'
         form = form.parent
       end
     rescue NoMethodError
-      # got to the top of the tree
+      # got to the top of the tree, or the selector isn't on the page
       form = nil
     end
     raise "#{selector} is not nested in a form" unless form.present?

@@ -28,12 +28,12 @@ module Formageddon
       when 'TRYING_CAPTCHA', 'RETRY_STEP'
         attempt = formageddon_delivery_attempts.last
 
-        if status == 'TRYING_CAPTCHA' and !(attempt.result == 'CAPTCHA_REQUIRED' or attempt.result == 'CAPTCHA_WRONG')
+        if status == 'TRYING_CAPTCHA' and ! %w(CAPTCHA_REQUIRED CAPTCHA_WRONG).include? attempt.result
           # weird state, abort
           return false
         end
 
-        browser = (attempt.result == 'CAPTCHA_WRONG') ? attempt.rebuild_browser(browser, false) : attempt.rebuild_browser(browser, true)
+        browser = (attempt.result == 'CAPTCHA_WRONG') ? attempt.rebuild_browser(browser, "after") : attempt.rebuild_browser(browser, "before")
 
         if options[:captcha_solution]
           @captcha_solution = options[:captcha_solution]
@@ -57,7 +57,7 @@ module Formageddon
       when :captcha_solution
         return @captcha_solution
       else
-        return self.formageddon_thread.send("sender_#{field.to_s}")
+        return self.formageddon_thread.send("sender_#{field.to_s}") rescue field.to_s
       end
     end
   end

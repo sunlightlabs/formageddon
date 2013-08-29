@@ -33,8 +33,19 @@ class CreateFormageddonTables < ActiveRecord::Migration
 
     create_table :formageddon_form_captcha_images do |t|
       t.integer :formageddon_form_id
+      t.integer :formageddon_recaptcha_form_id
       t.integer :image_number
       t.string :css_selector
+
+      t.timestamps
+    end
+
+    create_table :formageddon_recaptcha_form do |t|
+      t.integer :formageddon_form_id
+      t.string :url
+      t.string :response_field_css_selector
+      t.string :image_css_selector
+      t.string :id_selector
 
       t.timestamps
     end
@@ -65,7 +76,7 @@ class CreateFormageddonTables < ActiveRecord::Migration
     create_table :formageddon_letters do |t|
       t.integer :formageddon_thread_id
       t.string :direction
-      t.string :status
+      t.text :status
       t.string :issue_area
       t.string :subject
       t.text :message
@@ -75,10 +86,11 @@ class CreateFormageddonTables < ActiveRecord::Migration
 
     create_table :formageddon_delivery_attempts do |t|
       t.integer :formageddon_letter_id
-      t.string :result
+      t.text :result
       t.integer :letter_contact_step
       t.text :before_browser_state_id
       t.text :after_browser_state_id
+      t.text :captcha_browser_state_id
 
       t.timestamps
     end
