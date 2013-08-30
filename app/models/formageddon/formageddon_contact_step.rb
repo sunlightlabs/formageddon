@@ -128,11 +128,9 @@ module Formageddon
 
     # This creates the browser and iterates over the various form fields
     def execute(browser, options = {})
-      raise "Browser is invalid!" unless browser.kind_of? Mechanize
-
-      Rails.logger.debug "Executing Contact Step ##{self.step_number} for #{self.formageddon_recipient}..."
-
       begin
+        raise "Browser is invalid!" unless browser.kind_of? Mechanize
+        Rails.logger.debug "Executing Contact Step ##{self.step_number} for #{self.formageddon_recipient}..."
         save_states = options[:save_states].nil? ? true : options[:save_states]
 
         if save_states
@@ -389,20 +387,11 @@ module Formageddon
             letter.save
             delivery_attempt.save if save_states
 
-
             return false
           end
         end
       rescue
-        if letter.kind_of? Formageddon::FormageddonLetter
-          letter.status = "ERROR: #{$!}: #{$@[0]}"
-          letter.save
-        end
-
-        if save_states
-          delivery_attempt.result = "ERROR: #{$!}: #{$@[0]}"
-          delivery_attempt.save
-        end
+        save_after_error($!, options[:letter], options[:delivery_attempt], options[:save_states])
       end
     end
 
