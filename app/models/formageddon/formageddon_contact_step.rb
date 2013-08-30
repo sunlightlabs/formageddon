@@ -318,7 +318,6 @@ module Formageddon
           # Submit the form.
           begin
             form = browser.get_form_by_css(formageddon_form.submit_css_selector)
-            binding.pry
             form.submit
           rescue Timeout::Error
             Rails.logger.warn('Timeout! Saving after state...')
