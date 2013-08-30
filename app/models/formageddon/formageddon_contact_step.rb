@@ -1,5 +1,5 @@
 module Formageddon
-  class FieldNotFound < Exception; end
+  class FieldNotFound < StandardError; end
 
   class FormageddonContactStep < ActiveRecord::Base
     belongs_to :formageddon_recipient, :polymorphic => true
@@ -31,7 +31,7 @@ module Formageddon
 
     def get_element(browser, selector, options={})
       el = get_elements(browser, selector, options).first
-      raise FieldNotFound.new "Field (#{selector}) not found!" if el.nil?
+      raise(FieldNotFound, "Field (#{selector}) not found!") if el.nil?
       el
     end
 
@@ -392,6 +392,7 @@ module Formageddon
         end
       rescue
         save_after_error($!, options[:letter], options[:delivery_attempt], options[:save_states])
+        return false
       end
     end
 
