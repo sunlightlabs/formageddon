@@ -4,7 +4,6 @@ module Formageddon
   class IncomingEmailHandler < ActionMailer::Base
     def receive(email)
       to_email = email.to.select{|e| e =~ /_thread/ }.first
-
       return nil if to_email.nil?
 
       recipient, domain = to_email.split(/@/)
@@ -25,6 +24,9 @@ module Formageddon
       letter.save
 
       return letter
+    rescue
+      # RuntimeError is raised if the identifier word can't be decoded
+      return nil
     end
   end
 end
