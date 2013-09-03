@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
   s.name        = "formageddon"
   s.version     = Formageddon::VERSION
   s.platform    = Gem::Platform::RUBY
-  s.authors     = ["Dan Drinkard", "Andy Ross", "Participatory Politics Foundation", "Sunlight Foundation"]
+  s.authors     = ["Dan Drinkard", "Andy Ross", "Sunlight Foundation", "Participatory Politics Foundation"]
   s.email       = ["ddrinkard@sunlightfoundation.com"]
   s.homepage    = "https://github.com/sunlightlabs/formageddon"
   s.summary     = %q{Formageddon automates webform submission.}
@@ -20,4 +20,5 @@ Gem::Specification.new do |s|
   s.add_dependency('mechanize')
   s.add_dependency('haml')
   s.add_dependency('delayed_job', '~> 2.1')
+  s.add_dependency('rufus-mnemo')
 end

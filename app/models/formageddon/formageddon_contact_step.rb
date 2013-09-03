@@ -211,7 +211,7 @@ module Formageddon
             if (ff.value == 'email' &&
                 !Formageddon::configuration.reply_domain.nil? &&
                 !formageddon_form.use_real_email_address?)
-              fill_in(browser, ff.css_selector, :with => "formageddon+#{letter.formageddon_thread.id}@#{Formageddon::configuration.reply_domain}")
+              fill_in(browser, ff.css_selector, :with => "#{Rufus::Mnemo.to_s(letter.formageddon_thread.id)}_thread@#{Formageddon::configuration.reply_domain}")
 
             elsif ff.value == 'want_response'
               field = get_element(browser, ff.css_selector)
