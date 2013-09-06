@@ -66,6 +66,7 @@ class CreateFormageddonTables < ActiveRecord::Migration
       t.string :sender_phone
       t.string :sender_email
       t.string :privacy
+      t.boolean :open, :default => true
 
       t.integer :formageddon_sender_id
       t.string :formageddon_sender_type
