@@ -18,7 +18,7 @@
 
 %p.sender_title
   = f.label :sender_title, label_for(:sender_title)
-  = f.select :sender_title, options_for_select(Formageddon::FormageddonFormField.titles.map { |s| [s.to_s, s.to_s] })
+  = f.select :sender_title, options_for_select(Formageddon::FormageddonFormField.titles.map { |s| [s.to_s, s.to_s] }, (f.object.sender_title rescue nil))
 
 %p.sender_first_name
   = f.label :sender_first_name, label_for(:sender_first_name)
@@ -46,7 +46,7 @@
 
 %p.sender_state
   = f.label :sender_state, label_for(:sender_state)
-  = f.select :sender_state, options_for_select(Formageddon::FormageddonFormField.states.map { |s| [s.to_s, s.to_s] })
+  = f.select :sender_state, options_for_select(Formageddon::FormageddonFormField.states.map { |s| [s.to_s, s.to_s] }, (f.object.sender_state rescue nil))
 
 %p.sender_phone
   = f.label :sender_phone, label_for(:sender_phone)
