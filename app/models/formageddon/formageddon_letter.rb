@@ -1,5 +1,7 @@
 module Formageddon
   class FormageddonLetter < ActiveRecord::Base
+    include ActionView::Helpers::TextHelper
+
     belongs_to :formageddon_thread
     has_many :formageddon_delivery_attempts, :order => 'created_at ASC'
 
@@ -7,7 +9,10 @@ module Formageddon
 
     validates_presence_of :subject, :message => "You must enter a letter subject."
     validates_presence_of :message, :message => "You must enter some content in your message."
+    validates_length_of :subject, :maximum => 255
     validates_length_of :message, :maximum => 8000
+
+    before_create :truncate_title
 
     def send_letter(options = {})
       recipient = formageddon_thread.formageddon_recipient
@@ -59,6 +64,12 @@ module Formageddon
       else
         return self.formageddon_thread.send("sender_#{field.to_s}") rescue field.to_s
       end
+    end
+
+    protected
+
+    def truncate_subject(length=255)
+      self.subject = truncate(subject, :length => length, :omission => '...')
     end
   end
 end
