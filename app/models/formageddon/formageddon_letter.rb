@@ -12,7 +12,7 @@ module Formageddon
     validates_length_of :subject, :maximum => 255
     validates_length_of :message, :maximum => 8000
 
-    before_create :truncate_title
+    before_create :truncate_subject
 
     def send_letter(options = {})
       recipient = formageddon_thread.formageddon_recipient
