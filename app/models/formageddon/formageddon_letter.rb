@@ -50,7 +50,7 @@ module Formageddon
 
 
     def value_for(field)
-      case field.to_sym
+      case (field.to_sym rescue nil)
       when :message
         return self.message
       when :subject
