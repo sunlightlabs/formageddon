@@ -253,7 +253,7 @@ module Formageddon
                 if field.name == 'select'
                   choices = select_options_for(browser, ff.css_selector)
                 else
-                  choices = radio_options_for(ff.css_selector)
+                  choices = radio_options_for(browser, ff.css_selector)
                 end
                 begin
                   value = delegate_choice_value(:letter => letter, :option_list => choices, :type => :issue_area, :default => value)
