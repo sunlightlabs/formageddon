@@ -55,6 +55,10 @@ module Formageddon
           selection = option
         end
       end
+      # Set a stupid default for 'dependent' style selects that need js interactivity.
+      if select.children.length == 1
+        select.children.first.value = 'Other'
+      end
       if selection.nil?
         value_options = select.children.reject {|o| o['value'].blank? }
         if options[:default] == :random
