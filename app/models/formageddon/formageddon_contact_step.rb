@@ -404,8 +404,8 @@ module Formageddon
       captcha_node = browser.page.search(formageddon_form.formageddon_form_captcha_image.css_selector).first
       Rails.logger.warn("Getting captcha from #{formageddon_form.formageddon_form_captcha_image.css_selector}")
       if captcha_node
-        @captcha_image = browser.page.image_urls.select{ |ui| ui =~ /#{Regexp.escape(captcha_node.attributes['src'].value)}/ }.first
-        Rails.logger.warn("Captcha found. Picked out #{@captcha_image} from #{browser.page.image_urls * '\n'}")
+        @captcha_image = browser.page.image_urls.select{ |ui| !!(ui.to_s =~ /#{Regexp.escape(captcha_node.attributes['src'].value)}/) }.first.to_s rescue nil
+        Rails.logger.warn("Captcha found. Picked out #{@captcha_image} from #{browser.page.image_urls * "\n"}")
       elsif formageddon_form.has_recaptcha?
         @captcha_image = get_recaptcha_image(delivery_attempt)
       end
