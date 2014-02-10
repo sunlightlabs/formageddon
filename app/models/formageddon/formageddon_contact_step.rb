@@ -411,11 +411,14 @@ module Formageddon
       end
 
       unless @captcha_image.blank?
-        # turn following into method
+        # TODO: turn following into method
         Rails.logger.warn("Writing image to file: #{Formageddon::configuration.tmp_captcha_dir}#{letter.id}.jpg")
         uri = URI.parse(@captcha_image)
+        # Put session into headers for net::http
+        headers = {}
+        browser.cookies.each{|c| headers[c.name] = c.value }
         Net::HTTP.start(uri.host, uri.port) { |http|
-          resp = http.get("#{uri.path}?#{uri.query}")
+          resp = http.get("#{uri.path}?#{uri.query}", headers)
           open("#{Formageddon::configuration.tmp_captcha_dir}#{letter.id}.jpg", "wb") { |file|
             file.write(resp.body)
           }
