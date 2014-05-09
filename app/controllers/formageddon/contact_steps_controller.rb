@@ -1,36 +1,36 @@
 module Formageddon
   class ContactStepsController < FormageddonController
     unloadable
-    
+
     before_filter :admin_check
-    
+
     def new
       if params[:recipient_id].nil? or params[:recipient_type].nil?
         flash[:error] = "You must specify a recipient id and type to build steps!"
         redirect_to "/"
       end
-      
+
       @existing_contact_steps = FormageddonContactStep.where(["formageddon_recipient_id=? AND formageddon_recipient_type=?", params[:recipient_id], params[:recipient_type]]).order('step_number ASC')
       if !@existing_contact_steps.empty? and params[:overwrite] == 'true'
-        @existing_contact_steps.first.formageddon_recipient.formageddon_contact_steps.clear 
+        @existing_contact_steps.first.formageddon_recipient.formageddon_contact_steps.clear
         @existing_contact_steps = []
       end
-      
+
       session[:formageddon_recipient_id] = params[:recipient_id]
       session[:formageddon_recipient_type] = params[:recipient_type]
       session[:formageddon_contact_step] = 1
-      
+
       session[:formageddon_contact_steps] = []
-      session[:formageddon_temp_data] = []      
-      
-      @contact_step = FormageddonContactStep.new 
+      session[:formageddon_temp_data] = []
+
+      @contact_step = FormageddonContactStep.new
     end
-    
-    def create      
+
+    def create
       if params[:back_button]
         session[:formageddon_contact_step] -= 1
         @contact_step = session[:formageddon_contact_steps][session[:formageddon_contact_step] - 1]
-        
+
         render :action => 'new' if session[:formageddon_contact_step] == 1
         return
       else
@@ -40,25 +40,25 @@ module Formageddon
         @contact_step.step_number = session[:formageddon_contact_step]
         @contact_step.save
       end
-      
+
       # check validity?
-      
-      
+
+
       session[:formageddon_contact_steps][session[:formageddon_contact_step]-1] = @contact_step.id
       session[:formageddon_temp_data][session[:formageddon_contact_step]-1] = params[:formageddon_temp_data]
       session[:formageddon_contact_step] += 1
-      
+
       if params[:next_step] and params[:next_step] == 'true'
         browser = Mechanize.new
-        
+
         # execute all the steps to get here
         session[:formageddon_contact_steps].each_with_index do |step_id, step_i|
           step = FormageddonContactStep.find(step_id)
-          step.execute(browser, { :letter => session[:formageddon_temp_data][step_i], :save_states => false })        
+          step.execute(browser, { :letter => session[:formageddon_temp_data][step_i], :save_states => false })
         end
-        
+
         @page = browser.page
-        
+
         @contact_steps = []
         @form_imgs = []
         @page.forms.each_with_index do |form, form_i|
@@ -73,13 +73,13 @@ module Formageddon
         end
       else
         #session[:formageddon_contact_steps].each { |s| s.save }
-                
+
         redirect_to :controller => 'contact_steps', :action => 'show', :recipient_id => session[:formageddon_recipient_id], :recipient_type => session[:formageddon_recipient_type]
-        
+
         session[:formageddon_contact_steps] = session[:formageddon_contact_step] = session[:formageddon_recipient_id] = session[:formageddon_recipient_type] = nil
       end
     end
-    
+
     def show
       unless params[:recipient_id].nil? and params[:recipient_type].nil?
         @contact_steps = FormageddonContactStep.where(["formageddon_recipient_id=? AND formageddon_recipient_type=?", params[:recipient_id], params[:recipient_type]]).order('step_number ASC')
@@ -87,7 +87,7 @@ module Formageddon
         @contact_steps = FormageddonContactStep.where(["id=?", params[:id]])
       end
     end
-    
+
     def index
       @contact_steps_grouped = FormageddonContactStep.select('formageddon_recipient_id, formageddon_recipient_type').group('formageddon_recipient_id, formageddon_recipient_type')
 
@@ -95,21 +95,21 @@ module Formageddon
         @contact_steps_grouped.sort!{|a,b| a.formageddon_recipient.send(params[:sort]) <=> b.formageddon_recipient.send(params[:sort])}
       end
     end
-    
+
     def destroy
       if params[:recipient_id].nil? or params[:recipient_type].nil?
         flash[:error] = "Must specificy recipient ID and type."
         redirect_to :action => 'index'
         return
       end
-      
+
       recipient = Object.const_get(params[:recipient_type]).find_by_id(params[:recipient_id])
-      
+
       recipient.formageddon_contact_steps.clear unless (recipient.nil? or recipient.formageddon_contact_steps.empty?)
-      
+
       flash[:notice] = "Configuration deleted for #{recipient}"
       redirect_to :action => 'index'
     end
-    
+
   end
 end

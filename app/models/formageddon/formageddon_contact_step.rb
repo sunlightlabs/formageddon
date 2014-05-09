@@ -48,25 +48,27 @@ module Formageddon
 
     def select(browser, selector, options = {})
       selection = nil
-      select = get_element(browser, selector)
-      select.children.each do |option|
+      selectlist = get_element(browser, selector)
+      selectoptions = selectlist.children.select do |n|
+        n.respond_to?(:name) && n.name == 'option'
+      end.each do |option|
         option.remove_attribute('selected') rescue nil
         if option['value'] == options[:value]
           selection = option
         end
       end
       # Set a stupid default for 'dependent' style selects that need js interactivity.
-      if select.children.length == 1
-        select.children.first.value = 'Other'
+      if selectlist.children.length == 1
+        selectlist.children.first.value = 'Other'
       end
       if selection.nil?
-        value_options = select.children.reject {|o| o['value'].blank? }
+        value_options = selectoptions.reject {|o| o['value'].blank? }
         if options[:default] == :random
           return select(browser, selector, :value => value_options[rand(value_options.length)]['value'])
         elsif options[:default] == :first_with_value
           return select(browser, selector, :value => value_options.first['value'])
         elsif options[:default] == :first
-          selection = select.children.first
+          return select(browser, selector, :value => selectoptions.first['value'])
         end
       end
       selection['selected'] = 'selected' if selection.present?
@@ -242,10 +244,16 @@ module Formageddon
               value = letter.value_for(ff.value)
               if field.name == 'select'
                 choices = select_options_for(browser, ff.css_selector)
-                begin
-                  value = delegate_choice_value(:letter => letter, :option_list => choices, :type => :title, :default => value)
-                rescue NotImplementedError; end
-                select(browser, ff.css_selector, :value => value, :default => :random)
+                # try an exact match
+                selected = select(browser, ff.css_selector, :value => value)
+                # if that fails, try to delegate to get an appropriate value
+                if selected.nil?
+                  begin
+                      value = delegate_choice_value(:letter => letter, :option_list => choices, :type => :title, :default => value)
+                  rescue NotImplementedError; end
+                  # finally, use the delegated value, or fail to a random value
+                  select(browser, ff.css_selector, :value => value, :default => :random)
+                end
               else
                 fill_in(browser, ff.css_selector, :with => value)
               end
