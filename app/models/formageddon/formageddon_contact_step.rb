@@ -134,6 +134,9 @@ module Formageddon
 
     # This creates the browser and iterates over the various form fields
     def execute(browser, options = {})
+      all_steps = formageddon_recipient.formageddon_contact_steps
+      last_step = all_steps.index(self) + 1 == all_steps.count
+
       begin
         raise "Browser is invalid!" unless browser.kind_of? Mechanize
         Rails.logger.debug "Executing Contact Step ##{self.step_number} for #{self.formageddon_recipient}..."
@@ -359,6 +362,10 @@ module Formageddon
               delivery_attempt.save_after_browser_state(browser)
             end
 
+            return true
+
+          elsif !last_step # this is a 2-form process, and we're not at the end. so don't look for a success message yet
+            delivery_attempt.save_after_browser_state(browser)
             return true
 
           elsif formageddon_form.success_string.blank?
