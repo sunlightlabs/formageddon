@@ -245,6 +245,11 @@ module Formageddon
             elsif ff.value == 'title'
               field = get_element(browser, ff.css_selector)
               value = letter.value_for(ff.value)
+              if value.blank?
+                begin
+                  value = delegate_choice_value(:letter => letter, :type => :title, :default => value)
+                rescue NotImplementedError; end
+              end
               if field.name == 'select'
                 choices = select_options_for(browser, ff.css_selector)
                 # try an exact match
@@ -262,7 +267,7 @@ module Formageddon
               end
 
             elsif ff.value == 'issue_area'
-              value = letter.value_for(ff.value)
+              value = letter.value_for(ff.value) || 'other' # this is set for non-select fields
               field = get_element(browser, ff.css_selector)
               if field.name == 'select' || (field.name == 'input' && field.attr('type') == 'radio')
                 if field.name == 'select'
