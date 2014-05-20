@@ -252,7 +252,7 @@ module Formageddon
                       value = delegate_choice_value(:letter => letter, :option_list => choices, :type => :title, :default => value)
                   rescue NotImplementedError; end
                   # finally, use the delegated value, or fail to a random value
-                  select(browser, ff.css_selector, :value => value, :default => :random)
+                  select(browser, ff.css_selector, :value => value, :default => :first_with_value)
                 end
               else
                 fill_in(browser, ff.css_selector, :with => value)
