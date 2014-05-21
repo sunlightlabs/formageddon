@@ -126,7 +126,7 @@ module Formageddon
         selector = "input[type='radio'][name='#{radios.first.attr('name')}']"
         radios = get_elements(browser, selector, :scope => browser.get_form_node_by_css(selector))
       end
-      elements.map{|o| o['value']}
+      radios.map{|o| o['value']}
     end
 
     # This creates the browser and iterates over the various form fields
