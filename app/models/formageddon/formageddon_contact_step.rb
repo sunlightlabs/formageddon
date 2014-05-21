@@ -53,12 +53,13 @@ module Formageddon
         n.respond_to?(:name) && n.name == 'option'
       end.each do |option|
         option.remove_attribute('selected') rescue nil
-        if option['value'] == options[:value]
+        if option['value'] == options[:value] || option.text == options[:value]
           selection = option
         end
       end
       if selection.nil?
         value_options = selectoptions.reject {|o| o['value'].blank? }
+        value_options = selectoptions if value_options.empty?
         if options[:default] == :random
           return select(browser, selector, :value => value_options[rand(value_options.length)]['value'])
         elsif options[:default] == :first_with_value
