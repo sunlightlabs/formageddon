@@ -21,4 +21,5 @@ Gem::Specification.new do |s|
   s.add_dependency('haml')
   s.add_dependency('delayed_job', '~> 2.1')
   s.add_dependency('rufus-mnemo')
+  s.add_dependency('naught')
 end

@@ -1,7 +1,11 @@
 require 'rufus/mnemo'
+require 'nokogiri'
+require File.expand_path('../null_object', __FILE__)
 
 module Formageddon
   class IncomingEmailHandler < ActionMailer::Base
+    include NullObject::Conversions
+
     def receive(email)
       to_email = email.to.select{|e| e =~ /_thread/ }.first
       return nil if to_email.nil?
@@ -18,15 +22,27 @@ module Formageddon
       letter.direction = 'TO_SENDER'
 
       letter.subject = email.subject
-      letter.message = email.multipart? ? (email.text_part ? email.text_part.body.decoded : nil) : email.body.decoded
+
+      body_parts = [Maybe(email.text_part).body.decoded,
+                    formatted_text_for_html(Maybe(email.html_part).body.decoded.to_s),
+                    Maybe(email.body).decoded,
+                    "[Email text was unprocessable]"]
+      letter.message = body_parts.select{|part| Actual(part)}.first
 
       letter.formageddon_thread = thread
       letter.save
 
-      return letter
+      letter
     rescue
       # RuntimeError is raised if the identifier word can't be decoded
-      return nil
+      nil
+    end
+
+    protected
+
+    def formatted_text_for_html(html)
+      text = Nokogiri::HTML(html.gsub(/<br[^>]*>/, "\n")).text
+      text.length ? text : nil
     end
   end
 end
