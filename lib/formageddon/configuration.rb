@@ -8,7 +8,8 @@ module Formageddon
     attr_accessor :incoming_email_config
     attr_accessor :tmp_captcha_dir
     attr_accessor :default_params
-    
+    attr_accessor :log_with_sentry
+
     def initialize
       @admin_check_filter = nil
       @user_method = nil
@@ -18,6 +19,7 @@ module Formageddon
       @incoming_email_config = {}
       @tmp_captcha_dir = nil
       @default_params = {}
+      @log_with_sentry = nil
     end
   end
 

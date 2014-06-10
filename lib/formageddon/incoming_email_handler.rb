@@ -28,9 +28,20 @@ module Formageddon
                     Maybe(email.body).decoded,
                     "[Email text was unprocessable]"]
       letter.message = body_parts.select{|part| Actual(part)}.first
+      if Formageddon.configuration.log_with_sentry && defined?(Raven)
+        Raven.capture_message("Got reply: #{letter.message}")
+      end
 
       letter.formageddon_thread = thread
-      letter.save
+      unless letter.save
+        if Formageddon.configuration.log_with_sentry && defined?(Raven)
+          message = <<-EOM
+          Failed to save letter:
+          #{letter.errors.full_messages.to_sentence}
+          EOM
+          Raven.capture_message(message)
+        end
+      end
 
       letter
     rescue
@@ -41,6 +52,8 @@ module Formageddon
     protected
 
     def formatted_text_for_html(html)
+      # Returns plain text with break tags converted to newlines,
+      # or nil if the result is empty
       text = Nokogiri::HTML(html.gsub(/<br[^>]*>/, "\n")).text
       text.length ? text : nil
     end
