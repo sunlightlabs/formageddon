@@ -28,9 +28,6 @@ module Formageddon
                     Maybe(email.body).decoded,
                     "[Email text was unprocessable]"]
       letter.message = body_parts.select{|part| Actual(part)}.first
-      if Formageddon.configuration.log_with_sentry && defined?(Raven)
-        Raven.capture_message("Got reply: #{letter.message}")
-      end
 
       letter.formageddon_thread = thread
       unless letter.save
@@ -38,6 +35,14 @@ module Formageddon
           message = <<-EOM
           Failed to save letter:
           #{letter.errors.full_messages.to_sentence}
+
+          text part: #{email.text_part.body.decoded rescue nil}
+
+          html part: #{email.html_part.body.decoded rescue nil}
+
+          body: #{email.body.decoded rescue nil}
+
+          email: #{email}
           EOM
           Raven.capture_message(message)
         end
