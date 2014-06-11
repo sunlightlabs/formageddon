@@ -27,7 +27,7 @@ module Formageddon
                     formatted_text_for_html(Maybe(email.html_part).body.decoded.to_s),
                     Maybe(email.body).decoded,
                     "[Email text was unprocessable]"]
-      letter.message = body_parts.select{|part| Actual(part)}.first
+      letter.message = body_parts.select{|part| Actual(part).to_s.length > 0 }.first
 
       letter.formageddon_thread = thread
       unless letter.save
