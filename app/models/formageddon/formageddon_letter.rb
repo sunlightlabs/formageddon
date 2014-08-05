@@ -9,8 +9,8 @@ module Formageddon
 
     validates_presence_of :subject, :message => "You must enter a letter subject."
     validates_presence_of :message, :message => "You must enter some content in your message."
-    validates_length_of :subject, :maximum => 1000
-    validates_length_of :message, :maximum => 25000
+    validates_length_of :subject, :maximum => 1000, :message => 'Please shorten the subject of your letter.'
+    validates_length_of :message, :maximum => 25000, :message => 'Please shorten the body of your letter.'
 
     before_create :truncate_subject
 
