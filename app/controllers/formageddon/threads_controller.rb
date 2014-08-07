@@ -103,6 +103,18 @@ module Formageddon
 
       else
         @formageddon_thread = threads.first
+        valid_thread = @formageddon_thread.valid?
+        respond_to do |format|
+          format.html { 
+            if !valid_thread && !request.referrer.blank?
+              flash[:error_nojs] = 'You must have JavaScript enabled to use this form.'
+              redirect_to request.referrer
+            end
+          }
+          format.js {
+            #default
+          }
+        end
       end
     end
 
