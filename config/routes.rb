@@ -5,6 +5,6 @@ Rails.application.routes.draw do
     resources :formageddon_delivery_attempts, :controller => 'delivery_attempts', :path => '/formageddon/delivery_attempts'
     resources :formageddon_forms, :controller => 'forms', :path => '/formageddon/forms'
     
-    match 'captcha_image/:id' => 'formageddon/captcha_image#show'
+    match 'captcha_image/:id' => 'formageddon/captcha_image#show',:via => [:get] # methods?
   end
 end

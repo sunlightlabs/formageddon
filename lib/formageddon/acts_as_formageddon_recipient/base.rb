@@ -9,8 +9,10 @@ module Formageddon
 
       module ClassMethods
         def acts_as_formageddon_recipient
-          has_many :formageddon_contact_steps,  :class_name => 'Formageddon::FormageddonContactStep', :as => :formageddon_recipient, :order => 'formageddon_contact_steps.step_number ASC', :dependent => :destroy
-          has_many :formageddon_threads,  :class_name => 'Formageddon::FormageddonThread', :as => :formageddon_recipient, :order => 'formageddon_threads.created_at DESC'
+          has_many :formageddon_contact_steps, -> { order('formageddon_contact_steps.step_number ASC') },
+                   :class_name => 'Formageddon::FormageddonContactStep', :as => :formageddon_recipient, :dependent => :destroy
+          has_many :formageddon_threads, -> { order('formageddon_threads.created_at DESC') },
+                   :class_name => 'Formageddon::FormageddonThread', :as => :formageddon_recipient
 
           include Formageddon::ActsAsFormageddonRecipient::Base::InstanceMethods
         end
