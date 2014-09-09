@@ -3,7 +3,7 @@ module Formageddon
     include ActionView::Helpers::TextHelper
 
     belongs_to :formageddon_thread
-    has_many :formageddon_delivery_attempts, :order => 'created_at ASC'
+    has_many :formageddon_delivery_attempts, -> { order 'created_at ASC' }
 
     attr_accessor :captcha_solution
 
