@@ -2,7 +2,7 @@ module Formageddon
   class FormageddonThread < ActiveRecord::Base
     belongs_to :formageddon_recipient, :polymorphic => true
     belongs_to :formageddon_sender, :polymorphic => true
-    has_many :formageddon_letters, :order => 'created_at ASC'
+    has_many :formageddon_letters, -> { order('created_at ASC') }
 
     accepts_nested_attributes_for :formageddon_letters
 
