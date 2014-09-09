@@ -1,6 +1,7 @@
 module Formageddon
   class FormageddonForm < ActiveRecord::Base
-    has_many :formageddon_form_fields, :dependent => :destroy, :order => 'field_number ASC NULLS LAST'
+    has_many :formageddon_form_fields, -> { order('field_number ASC NULLS LAST') },
+             :dependent => :destroy
     has_one :formageddon_form_captcha_image, :dependent => :destroy
     has_one :formageddon_recaptcha_form, :dependent => :destroy
     belongs_to :formageddon_contact_step
