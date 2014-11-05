@@ -1,11 +1,19 @@
+require_dependency 'renders_templates'
+
 module Formageddon
   class FormageddonLetter < ActiveRecord::Base
+    include RendersTemplates
+    include Faxable
     include ActionView::Helpers::TextHelper
 
     belongs_to :formageddon_thread
     has_many :formageddon_delivery_attempts, -> { order('created_at ASC') }
 
     attr_accessor :captcha_solution
+
+    delegate :formageddon_recipient_id,:to => 'Formageddon::FormageddonThread'
+
+    PRINT_TEMPLATE = "contact_congress_letters/print"
 
     validates_presence_of :subject, :message => "You must enter a letter subject."
     validates_presence_of :message, :message => "You must enter some content in your message."
@@ -15,18 +23,20 @@ module Formageddon
     before_create :truncate_subject
 
     def send_letter(options = {})
-      recipient = formageddon_thread.formageddon_recipient
+      recipient = self.formageddon_thread.formageddon_recipient
 
-      if recipient.nil? or recipient.formageddon_contact_steps.empty?
-        self.status = 'ERROR: Recipient not configured for message delivery!'
-        self.save
-        return false
+      if recipient.nil? || recipient.formageddon_contact_steps.empty?
+        unless self.status =~ /^(SENT|RECEIVED|ERROR)/  # These statuses don't depend on a proper set of contact steps
+          self.status = 'ERROR: Recipient not configured for message delivery!'
+          self.save
+        end
+        return false if recipient.nil?
       end
 
       browser = Mechanize.new
       browser.user_agent_alias = "Windows IE 7"
       browser.follow_meta_refresh = true
-
+  
       case status
       when 'START', 'RETRY'
         return recipient.execute_contact_steps(browser, self)
@@ -38,16 +48,41 @@ module Formageddon
           return false
         end
 
-        browser = (attempt.result == 'CAPTCHA_WRONG') ? attempt.rebuild_browser(browser, "after") : attempt.rebuild_browser(browser, "before")
+        browser = (attempt.result == 'CAPTCHA_WRONG') ? attempt.rebuild_browser(browser, 'after') : attempt.rebuild_browser(browser, 'before')
 
         if options[:captcha_solution]
           @captcha_solution = options[:captcha_solution]
+          @captcha_browser_state = attempt.captcha_browser_state
         end
 
         return recipient.execute_contact_steps(browser, self, attempt.letter_contact_step)
+      when /^ERROR:/
+        if recipient.fax
+          return send_fax :error_msg => status
+        end
       end
     end
 
+    def send_fax(options={})
+      recipient = options.fetch(:recipient, formageddon_thread.formageddon_recipient)
+      if recipient.fax.present?
+        if defined? Settings.force_fax_recipient
+          send_as_fax(Settings.force_fax_recipient)
+        else
+          send_as_fax(recipient.fax)
+        end
+        self.status = "SENT_AS_FAX"
+        self.status += ": Error was, #{options[:error_msg]}" if options[:error_msg].present?
+        self.save!
+        return @fax # TODO: This sucks, why did I do this?
+      else
+        return false
+      end
+    end
+
+    def as_html
+      @rendered ||= render_to_string(:partial => PRINT_TEMPLATE, :locals => { :letter => self })
+    end
 
     def value_for(field)
       case (field.to_sym rescue nil)
