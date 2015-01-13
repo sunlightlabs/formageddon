@@ -38,11 +38,18 @@ module Formageddon
     # The following methods alter the browser page state via nokogiri, to then be loaded
     # in as a Mechanize::Form and submitted later
     def fill_in(browser, selector, options={})
-      element = get_element(browser, selector)
-      if element.name == 'textarea'
-        element.inner_html = options[:with]
-      else
-        get_element(browser, selector)['value'] = options[:with]
+      elements = get_elements(browser, selector, options)
+      raise(FieldNotFound, "Field (#{selector}) not found!") if (elements.empty? or elements.nil?)
+      elements.each do |element|
+        begin
+          if element.name == 'textarea'
+            element.inner_html = options[:with]
+          else
+            element['value'] = options[:with]
+          end
+        rescue
+          raise(FieldNotFound, "Unable to mutate element.")
+        end
       end
     end
 
