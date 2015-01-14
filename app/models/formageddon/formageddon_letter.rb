@@ -23,9 +23,10 @@ module Formageddon
         return false
       end
 
-      browser = Mechanize.new
-      browser.user_agent_alias = "Windows IE 7"
-      browser.follow_meta_refresh = true
+      browser = Mechanize.new do |config|
+        config.user_agent_alias = options[:user_agent_alias] || 'Windows IE 7'
+        config.follow_meta_refresh = options[:follow_meta_refresh] || true
+      end
 
       case status
       when 'START', 'RETRY'
