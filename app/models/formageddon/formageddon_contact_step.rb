@@ -80,12 +80,12 @@ module Formageddon
     end
 
     def check(browser, selector, options = {})
-      element = get_element(browser, selector)
-      form = browser.get_form_node_by_css(selector)
-      form.search("[name='#{element['name']}']").each do |el|
-        el.remove_attribute('checked') rescue nil
-      end
       begin
+        element = get_element(browser, selector)
+        form = browser.get_form_node_by_css(selector)
+        form.search("[name='#{element['name']}']").each do |el|
+          el.remove_attribute('checked') rescue nil
+        end
         get_element(browser, selector)['checked'] = 'checked'
       rescue FieldNotFound
         if options[:is_retry]
